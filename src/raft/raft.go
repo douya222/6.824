@@ -569,7 +569,7 @@ func (rf *Raft) heartbeat(server int) {
 		args.PrevLogTerm = rf.log[realPrevLogIndex].Term
 	}
 	// 2D
-	// 如果有日志还没被 commit
+	// 同步的日志在快照里还是log里
 	if rf.getLastLogLogicIndex() != rf.matchIndex[server] {
 		// hint: have the leader send an InstallSnapshot RPC if it doesn't have the log entries required to bring a follower up to date.
 		if rf.nextIndex[server] < rf.snapshot.lastIncludedIndex {
