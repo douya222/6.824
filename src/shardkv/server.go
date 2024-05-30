@@ -369,14 +369,14 @@ func (kv *ShardKV) processMsg(applyMsg raft.ApplyMsg) {
 
 	ck := kv.GetCk(Msg.ClerkId)
 	needNotify := ck.msgUniqueId == applyMsg.CommandIndex
-	if isLeader && needNotify {
+	if isLeader && needNotify { // 是否需要通知
 		ck.msgUniqueId = 0
 		DPrintf("[ShardKV-%d-%d] Process Msg %v finish, ready send to ck.Ch, SeqId=%d isLeader=%v", kv.gid, kv.me, applyMsg, ck.seqId, isLeader)
 		kv.NotifyApplyMsgByCh(ck.messageCh, Msg)
 		DPrintf("[ShardKV-%d-%d] Process Msg %v Send to Rpc handler finish SeqId=%d isLeader=%v", kv.gid, kv.me, applyMsg, ck.seqId, isLeader)
 	}
 
-	if Msg.SeqId < ck.seqId {
+	if Msg.SeqId < ck.seqId { // 已经处理过该消息
 		DPrintf("[ShardKV-%d-%d] Ignore Msg %v,  Msg.SeqId < ck.seqId=%d", kv.gid, kv.me, applyMsg, ck.seqId)
 		return
 	}
@@ -411,7 +411,7 @@ func (kv *ShardKV) processMsg(applyMsg raft.ApplyMsg) {
 	case "ShardInit":
 		if kv.shards.ConfigNum > 1 {
 			DPrintf("[ShardKV-%d-%d] already ShardInit, kv.shards=%v, Msg=%v", kv.gid, kv.me, kv.shards, Msg)
-		} else {
+		} else { // kv.shards.ConfigNum == 1 初始化
 			DPrintf("[ShardKV-%d-%d] ShardChange, ShardInit, kv.shards before=%v, after=%v", kv.gid, kv.me, kv.shards, Msg)
 			kv.shards.ShardReqId = Msg.ClerkId
 			kv.shards.ShardReqSeqId = Msg.SeqId + 1
@@ -693,6 +693,8 @@ func (kv *ShardKV) addShard(shard int, shards *[]int) {
 }
 
 func (kv *ShardKV) checkConfig(config shardctrler.Config) {
+
+	// 日志若更新，config.Num == kv.shards.ConfigNum
 	if config.Num < kv.shards.ConfigNum || config.Num == 0 {
 		DPrintf("[ShardKV-%d-%d] checkConfig not change, config=%v, kv.shards=%v", kv.gid, kv.me, config, kv.shards)
 		return
@@ -737,7 +739,7 @@ func (kv *ShardKV) checkConfig(config shardctrler.Config) {
 		return
 	}
 
-	// only incr config num
+	// only add config num, 日志更新但没有分片迁移
 	if len(waitJoinShards) == 0 && len(leaveShards) == 0 {
 		kv.rf.Start(Op{
 			Command: "ShardConf",
@@ -749,7 +751,7 @@ func (kv *ShardKV) checkConfig(config shardctrler.Config) {
 		})
 		return
 	}
-
+	// 有日志迁移
 	if len(leaveShards) != 0 || len(waitJoinShards) != 0 {
 		op := Op{
 			Command: "ShardChange",
